@@ -1,11 +1,11 @@
-use crate::adapters::http::auth::auth_middleware;
+#[allow(unused_imports)]
+use crate::adapters::http::auth::auth_middleware; // re-enable with auth layer below
 use crate::adapters::http::handlers::{
     license_handler, movie_handler, scene_handler, sse_handler, track_handler,
 };
 use crate::adapters::realtime::BroadcastEventPublisher;
 use crate::ports::*;
 use axum::{
-    middleware,
     routing::{get, patch},
     Router,
 };
@@ -76,11 +76,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/movies/:movie_id/scenes/:scene_id/tracks/:track_id/licenses/events",
             get(sse_handler::stream_events),
-        )
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth_middleware,
-        ));
+        );
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     auth_middleware,
+        // ));
 
     Router::new()
         .merge(api_routes)
