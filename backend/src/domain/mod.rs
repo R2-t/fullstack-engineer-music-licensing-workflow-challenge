@@ -1,15 +1,18 @@
 pub mod workflow;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Error, PartialEq)]
 pub enum DomainError {
     #[error("Entity not found: {0}")]
     NotFound(String),
     #[error("Invalid transition from {from:?} to {to:?}")]
-    InvalidTransition { from: LicenseStatus, to: LicenseStatus },
+    InvalidTransition {
+        from: LicenseStatus,
+        to: LicenseStatus,
+    },
     #[error("Business rule violation: {0}")]
     ValidationError(String),
     #[error("Internal system error")]
@@ -44,7 +47,10 @@ impl std::str::FromStr for LicenseStatus {
             "NEGOTIATING" => Ok(Self::Negotiating),
             "APPROVED" => Ok(Self::Approved),
             "REJECTED" => Ok(Self::Rejected),
-            _ => Err(DomainError::ValidationError(format!("Invalid status: {}", s))),
+            _ => Err(DomainError::ValidationError(format!(
+                "Invalid status: {}",
+                s
+            ))),
         }
     }
 }
@@ -121,17 +127,35 @@ mod tests {
     #[test]
     fn license_status_from_str_valid() {
         assert_eq!("DRAFT".parse::<LicenseStatus>(), Ok(LicenseStatus::Draft));
-        assert_eq!("NEGOTIATING".parse::<LicenseStatus>(), Ok(LicenseStatus::Negotiating));
-        assert_eq!("APPROVED".parse::<LicenseStatus>(), Ok(LicenseStatus::Approved));
-        assert_eq!("REJECTED".parse::<LicenseStatus>(), Ok(LicenseStatus::Rejected));
+        assert_eq!(
+            "NEGOTIATING".parse::<LicenseStatus>(),
+            Ok(LicenseStatus::Negotiating)
+        );
+        assert_eq!(
+            "APPROVED".parse::<LicenseStatus>(),
+            Ok(LicenseStatus::Approved)
+        );
+        assert_eq!(
+            "REJECTED".parse::<LicenseStatus>(),
+            Ok(LicenseStatus::Rejected)
+        );
     }
 
     #[test]
     fn license_status_from_str_case_insensitive() {
         assert_eq!("draft".parse::<LicenseStatus>(), Ok(LicenseStatus::Draft));
-        assert_eq!("Negotiating".parse::<LicenseStatus>(), Ok(LicenseStatus::Negotiating));
-        assert_eq!("Approved".parse::<LicenseStatus>(), Ok(LicenseStatus::Approved));
-        assert_eq!("REJECTED".parse::<LicenseStatus>(), Ok(LicenseStatus::Rejected));
+        assert_eq!(
+            "Negotiating".parse::<LicenseStatus>(),
+            Ok(LicenseStatus::Negotiating)
+        );
+        assert_eq!(
+            "Approved".parse::<LicenseStatus>(),
+            Ok(LicenseStatus::Approved)
+        );
+        assert_eq!(
+            "REJECTED".parse::<LicenseStatus>(),
+            Ok(LicenseStatus::Rejected)
+        );
     }
 
     #[test]

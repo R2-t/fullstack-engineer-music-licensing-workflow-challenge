@@ -1,14 +1,14 @@
+use crate::adapters::http::dto::*;
+use crate::adapters::http::handlers::movie_handler::PaginationParams;
+use crate::adapters::http::router::AppState;
+use crate::domain::Song;
+use crate::error::AppError;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     Json,
 };
 use std::sync::Arc;
-use crate::adapters::http::dto::*;
-use crate::adapters::http::router::AppState;
-use crate::adapters::http::handlers::movie_handler::PaginationParams;
-use crate::domain::Song;
-use crate::error::AppError;
 
 fn song_dto_to_domain(dto: SongDto) -> Song {
     Song {
@@ -37,12 +37,21 @@ pub async fn list_tracks(
 ) -> Result<Json<TrackListResponse>, AppError> {
     let page = params.page.unwrap_or(1);
     let limit = params.limit.unwrap_or(20);
-    
-    let tracks = state.track_repo.list_by_scene(scene_id, page, limit).await?;
-    
+
+    let tracks = state
+        .track_repo
+        .list_by_scene(scene_id, page, limit)
+        .await?;
+
     let mut summaries = Vec::new();
     for track in tracks {
-        let license_status = state.license_repo.find_by_track(track.id).await.ok().flatten().map(|l| l.status);
+        let license_status = state
+            .license_repo
+            .find_by_track(track.id)
+            .await
+            .ok()
+            .flatten()
+            .map(|l| l.status);
         summaries.push(TrackSummary {
             id: track.id,
             scene_id: track.scene_id,
@@ -71,24 +80,29 @@ pub async fn create_track(
 ) -> Result<(StatusCode, Json<TrackFull>), AppError> {
     let name = req.name.unwrap_or_else(|| "Unnamed Track".to_string());
     let order = req.track_order.unwrap_or(0);
-    
+
     if req.song.duration_sec_end <= req.song.duration_sec_start {
-        return Err(AppError::BadRequest("duration_sec_end must be greater than duration_sec_start".to_string()));
+        return Err(AppError::BadRequest(
+            "duration_sec_end must be greater than duration_sec_start".to_string(),
+        ));
     }
-    
+
     let song = song_dto_to_domain(req.song);
     let track = state.track_repo.create(scene_id, order, name, song).await?;
-    
-    Ok((StatusCode::CREATED, Json(TrackFull {
-        id: track.id,
-        scene_id: track.scene_id,
-        track_order: track.track_order,
-        name: track.name,
-        song: song_domain_to_dto(&track.song),
-        license_status: None,
-        license: None,
-        created_at: track.created_at,
-    })))
+
+    Ok((
+        StatusCode::CREATED,
+        Json(TrackFull {
+            id: track.id,
+            scene_id: track.scene_id,
+            track_order: track.track_order,
+            name: track.name,
+            song: song_domain_to_dto(&track.song),
+            license_status: None,
+            license: None,
+            created_at: track.created_at,
+        }),
+    ))
 }
 
 pub async fn get_track(
@@ -96,8 +110,13 @@ pub async fn get_track(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<TrackFull>, AppError> {
     let track = state.track_repo.find_by_id(track_id).await?;
-    let license = state.license_repo.find_by_track(track_id).await.ok().flatten();
-    
+    let license = state
+        .license_repo
+        .find_by_track(track_id)
+        .await
+        .ok()
+        .flatten();
+
     let license_status = license.as_ref().map(|l| l.status);
     let license_summary = license.map(|l| LicenseSummary {
         id: l.id,
@@ -127,13 +146,18 @@ pub async fn update_track(
 ) -> Result<Json<TrackFull>, AppError> {
     if let Some(ref s) = req.song {
         if s.duration_sec_end <= s.duration_sec_start {
-            return Err(AppError::BadRequest("duration_sec_end must be greater than duration_sec_start".to_string()));
+            return Err(AppError::BadRequest(
+                "duration_sec_end must be greater than duration_sec_start".to_string(),
+            ));
         }
     }
-    
+
     let song = req.song.map(song_dto_to_domain);
-    let updated = state.track_repo.update(track_id, req.name, req.track_order, song).await?;
-    
+    let updated = state
+        .track_repo
+        .update(track_id, req.name, req.track_order, song)
+        .await?;
+
     Ok(Json(TrackFull {
         id: updated.id,
         scene_id: updated.scene_id,

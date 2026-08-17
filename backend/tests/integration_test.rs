@@ -1,12 +1,12 @@
-use music_licensing_backend::adapters::http::router::{AppState, build_router};
+use axum::body::Body;
+use http::{Method, Request, StatusCode};
+use http_body_util::BodyExt;
+use jsonwebtoken::{EncodingKey, Header};
+use music_licensing_backend::adapters::http::router::{build_router, AppState};
 use music_licensing_backend::adapters::realtime::BroadcastEventPublisher;
 use music_licensing_backend::domain::*;
 use music_licensing_backend::ports::*;
 use std::sync::Arc;
-use axum::body::Body;
-use http_body_util::BodyExt;
-use http::{Request, Method, StatusCode};
-use jsonwebtoken::{EncodingKey, Header};
 use tower::ServiceExt;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -22,7 +22,12 @@ fn make_token(secret: &str) -> String {
         email: "test@example.com".to_string(),
         exp: (chrono::Utc::now().timestamp() + 3600) as usize,
     };
-    jsonwebtoken::encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes())).unwrap()
+    jsonwebtoken::encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .unwrap()
 }
 
 fn make_license(id: i32, track_id: i32, status: LicenseStatus) -> License {
@@ -40,7 +45,16 @@ fn make_license(id: i32, track_id: i32, status: LicenseStatus) -> License {
 async fn send_request(app: axum::Router, req: Request<Body>) -> (StatusCode, String) {
     let response = app.oneshot(req).await.unwrap();
     let status = response.status();
-    let body = String::from_utf8(response.into_body().collect().await.unwrap().to_bytes().to_vec()).unwrap();
+    let body = String::from_utf8(
+        response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .to_vec(),
+    )
+    .unwrap();
     (status, body)
 }
 
@@ -120,8 +134,7 @@ async fn wrong_secret_returns_401() {
 #[tokio::test]
 async fn list_movies_returns_200() {
     let mut movie_repo = MockMovieRepository::new();
-    movie_repo.expect_list()
-        .returning(|_, _| Ok(vec![]));
+    movie_repo.expect_list().returning(|_, _| Ok(vec![]));
 
     let state = Arc::new(AppState {
         movie_repo: Arc::new(movie_repo),
@@ -146,7 +159,8 @@ async fn list_movies_returns_200() {
 #[tokio::test]
 async fn get_movie_not_found_returns_404() {
     let mut movie_repo = MockMovieRepository::new();
-    movie_repo.expect_find_by_id()
+    movie_repo
+        .expect_find_by_id()
         .returning(|_| Err(DomainError::NotFound("Movie 999".to_string())));
 
     let state = Arc::new(AppState {
@@ -173,7 +187,8 @@ async fn get_movie_not_found_returns_404() {
 #[tokio::test]
 async fn initiate_duplicate_license_returns_409() {
     let mut license_repo = MockLicenseRepository::new();
-    license_repo.expect_find_by_track()
+    license_repo
+        .expect_find_by_track()
         .returning(|_| Ok(Some(make_license(1, 1, LicenseStatus::Draft))));
 
     let state = Arc::new(AppState {
@@ -199,7 +214,8 @@ async fn initiate_duplicate_license_returns_409() {
 #[tokio::test]
 async fn transition_invalid_status_returns_409() {
     let mut license_repo = MockLicenseRepository::new();
-    license_repo.expect_find_by_track()
+    license_repo
+        .expect_find_by_track()
         .returning(|_| Ok(Some(make_license(1, 1, LicenseStatus::Draft))));
 
     let state = Arc::new(AppState {
@@ -214,9 +230,13 @@ async fn transition_invalid_status_returns_409() {
     let app = build_router(state);
     let token = make_token("test_secret");
 
-    let req = auth_request(Method::PATCH, "/movies/1/scenes/1/tracks/1/licenses/status-transition", &token)
-        .body(Body::from(r#"{"target_status": "APPROVED"}"#))
-        .unwrap();
+    let req = auth_request(
+        Method::PATCH,
+        "/movies/1/scenes/1/tracks/1/licenses/status-transition",
+        &token,
+    )
+    .body(Body::from(r#"{"target_status": "APPROVED"}"#))
+    .unwrap();
 
     let (status, _) = send_request(app, req).await;
     assert_eq!(status, StatusCode::CONFLICT);
@@ -225,8 +245,7 @@ async fn transition_invalid_status_returns_409() {
 #[tokio::test]
 async fn get_license_not_found_returns_404() {
     let mut license_repo = MockLicenseRepository::new();
-    license_repo.expect_find_by_track()
-        .returning(|_| Ok(None));
+    license_repo.expect_find_by_track().returning(|_| Ok(None));
 
     let state = Arc::new(AppState {
         movie_repo: Arc::new(MockMovieRepository::new()),

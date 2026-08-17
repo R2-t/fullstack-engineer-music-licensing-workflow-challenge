@@ -1,7 +1,7 @@
-use sqlx::{PgPool, Row};
 use crate::domain::*;
 use crate::ports::LicenseRepository;
 use async_trait::async_trait;
+use sqlx::{PgPool, Row};
 
 pub struct PostgresLicenseRepository {
     pool: PgPool,
@@ -37,7 +37,7 @@ impl LicenseRepository for PostgresLicenseRepository {
                 tracing::error!("DB error finding license for track {}: {}", track_id, e);
                 DomainError::Internal
             })?;
-        
+
         Ok(row.as_ref().map(row_to_license))
     }
 
@@ -51,11 +51,17 @@ impl LicenseRepository for PostgresLicenseRepository {
                 DomainError::Internal
             })?
             .ok_or(DomainError::NotFound(format!("License {}", id)))?;
-        
+
         Ok(row_to_license(&row))
     }
 
-    async fn create(&self, track_id: i32, label: Option<String>, artist: Option<String>, notes: serde_json::Value) -> Result<License, DomainError> {
+    async fn create(
+        &self,
+        track_id: i32,
+        label: Option<String>,
+        artist: Option<String>,
+        notes: serde_json::Value,
+    ) -> Result<License, DomainError> {
         let row = sqlx::query("INSERT INTO licenses (track_id, label_name, artist_name, status, negotiation_notes) VALUES ($1, $2, $3, 'DRAFT', $4) RETURNING id, track_id, label_name, artist_name, status, negotiation_notes, last_updated_at")
             .bind(track_id)
             .bind(&label)
@@ -67,11 +73,16 @@ impl LicenseRepository for PostgresLicenseRepository {
                 tracing::error!("DB error creating license for track {}: {}", track_id, e);
                 DomainError::Internal
             })?;
-        
+
         Ok(row_to_license(&row))
     }
 
-    async fn update_status(&self, id: i32, status: LicenseStatus, notes: serde_json::Value) -> Result<License, DomainError> {
+    async fn update_status(
+        &self,
+        id: i32,
+        status: LicenseStatus,
+        notes: serde_json::Value,
+    ) -> Result<License, DomainError> {
         let status_str = status.to_string();
         let row = sqlx::query("UPDATE licenses SET status = $1, negotiation_notes = negotiation_notes || $2, last_updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, track_id, label_name, artist_name, status, negotiation_notes, last_updated_at")
             .bind(&status_str)
@@ -83,7 +94,7 @@ impl LicenseRepository for PostgresLicenseRepository {
                 tracing::error!("DB error updating license {}: {}", id, e);
                 DomainError::Internal
             })?;
-        
+
         Ok(row_to_license(&row))
     }
 }

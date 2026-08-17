@@ -1,13 +1,13 @@
+use crate::adapters::http::router::AppState;
+use crate::error::AppError;
 use axum::extract::{Path, Query, State};
 use axum::response::sse::{Event, Sse};
 use futures::stream::Stream;
+use serde::Deserialize;
 use std::convert::Infallible;
 use std::sync::Arc;
-use crate::adapters::http::router::AppState;
-use crate::error::AppError;
 use tracing::{info, Span};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct SseQuery {
@@ -41,7 +41,7 @@ pub async fn stream_events(
     }
 
     let mut rx = state.event_publisher.subscribe();
-    
+
     let stream = async_stream::stream! {
         while let Ok(event) = rx.recv().await {
             if event.track_id == track_id {

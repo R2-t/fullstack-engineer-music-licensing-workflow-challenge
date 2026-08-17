@@ -11,10 +11,11 @@ async fn main() {
     let pool = sqlx::PgPool::connect(&config.database_url)
         .await
         .expect("Failed to connect to database");
-    
+
     let migration_sql = include_str!("../migrations/0001_init.sql");
     for statement in migration_sql.split(';') {
-        let statement: String = statement.lines()
+        let statement: String = statement
+            .lines()
             .filter(|line| !line.trim_start().starts_with("--"))
             .collect::<Vec<_>>()
             .join(" ");
@@ -28,13 +29,11 @@ async fn main() {
     }
 
     let app = create_router(pool, config.jwt_secret.clone());
-    
+
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", config.host, config.port))
         .await
         .expect("Failed to bind listener");
-    
+
     tracing::info!("Server running on http://{}:{}", config.host, config.port);
-    axum::serve(listener, app)
-        .await
-        .expect("Server error");
+    axum::serve(listener, app).await.expect("Server error");
 }

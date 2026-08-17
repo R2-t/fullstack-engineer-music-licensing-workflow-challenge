@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::domain::*;
 use crate::ports::SceneRepository;
+use std::sync::Arc;
 
 pub struct SceneService<R: SceneRepository> {
     repo: Arc<R>,
@@ -11,7 +11,12 @@ impl<R: SceneRepository> SceneService<R> {
         Self { repo }
     }
 
-    pub async fn list_by_movie(&self, movie_id: i32, page: i32, limit: i32) -> Result<Vec<Scene>, DomainError> {
+    pub async fn list_by_movie(
+        &self,
+        movie_id: i32,
+        page: i32,
+        limit: i32,
+    ) -> Result<Vec<Scene>, DomainError> {
         self.repo.list_by_movie(movie_id, page, limit).await
     }
 
@@ -28,8 +33,8 @@ impl<R: SceneRepository> SceneService<R> {
 mod tests {
     use super::*;
     use crate::ports::MockSceneRepository;
-    use mockall::predicate::*;
     use chrono::Utc;
+    use mockall::predicate::*;
 
     fn make_scene(id: i32, movie_id: i32) -> Scene {
         Scene {
@@ -70,12 +75,14 @@ mod tests {
         let mut repo = MockSceneRepository::new();
         repo.expect_create()
             .with(eq(1), eq(5))
-            .returning(|movie_id, scene_number| Ok(Scene {
-                id: 1,
-                movie_id,
-                scene_number,
-                created_at: Utc::now(),
-            }));
+            .returning(|movie_id, scene_number| {
+                Ok(Scene {
+                    id: 1,
+                    movie_id,
+                    scene_number,
+                    created_at: Utc::now(),
+                })
+            });
 
         let service = SceneService::new(Arc::new(repo));
         let result = service.create(1, 5).await;

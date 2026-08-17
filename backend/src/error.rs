@@ -1,8 +1,8 @@
-use thiserror::Error;
+use crate::domain::DomainError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use crate::domain::DomainError;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -32,13 +32,27 @@ impl IntoResponse for AppError {
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, "bad_request", msg),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, "conflict", msg),
             AppError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, "unauthorized", msg),
-            AppError::Domain(DomainError::InvalidTransition { from, to }) => {
-                (StatusCode::CONFLICT, "invalid_transition", format!("Cannot transition from {} to {}", from, to))
-            },
-            AppError::Domain(DomainError::NotFound(msg)) => (StatusCode::NOT_FOUND, "not_found", msg),
-            AppError::Domain(DomainError::ValidationError(msg)) => (StatusCode::BAD_REQUEST, "bad_request", msg),
-            AppError::Domain(e) => (StatusCode::INTERNAL_SERVER_ERROR, "domain_error", e.to_string()),
-            AppError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "An internal server error occurred".to_string()),
+            AppError::Domain(DomainError::InvalidTransition { from, to }) => (
+                StatusCode::CONFLICT,
+                "invalid_transition",
+                format!("Cannot transition from {} to {}", from, to),
+            ),
+            AppError::Domain(DomainError::NotFound(msg)) => {
+                (StatusCode::NOT_FOUND, "not_found", msg)
+            }
+            AppError::Domain(DomainError::ValidationError(msg)) => {
+                (StatusCode::BAD_REQUEST, "bad_request", msg)
+            }
+            AppError::Domain(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "domain_error",
+                e.to_string(),
+            ),
+            AppError::Internal(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "An internal server error occurred".to_string(),
+            ),
         };
 
         let body = Json(serde_json::json!({
@@ -116,9 +130,18 @@ mod tests {
 
     #[test]
     fn error_display_messages() {
-        assert_eq!(AppError::NotFound("x".into()).to_string(), "Resource not found: x");
-        assert_eq!(AppError::BadRequest("x".into()).to_string(), "Invalid request: x");
+        assert_eq!(
+            AppError::NotFound("x".into()).to_string(),
+            "Resource not found: x"
+        );
+        assert_eq!(
+            AppError::BadRequest("x".into()).to_string(),
+            "Invalid request: x"
+        );
         assert_eq!(AppError::Conflict("x".into()).to_string(), "Conflict: x");
-        assert_eq!(AppError::Unauthorized("x".into()).to_string(), "Unauthorized: x");
+        assert_eq!(
+            AppError::Unauthorized("x".into()).to_string(),
+            "Unauthorized: x"
+        );
     }
 }

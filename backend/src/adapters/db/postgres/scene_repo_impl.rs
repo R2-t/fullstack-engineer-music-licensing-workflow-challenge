@@ -1,7 +1,7 @@
-use sqlx::{PgPool, Row};
 use crate::domain::*;
 use crate::ports::SceneRepository;
 use async_trait::async_trait;
+use sqlx::{PgPool, Row};
 
 pub struct PostgresSceneRepository {
     pool: PgPool,
@@ -15,7 +15,12 @@ impl PostgresSceneRepository {
 
 #[async_trait]
 impl SceneRepository for PostgresSceneRepository {
-    async fn list_by_movie(&self, movie_id: i32, page: i32, limit: i32) -> Result<Vec<Scene>, DomainError> {
+    async fn list_by_movie(
+        &self,
+        movie_id: i32,
+        page: i32,
+        limit: i32,
+    ) -> Result<Vec<Scene>, DomainError> {
         let offset = (page - 1) * limit;
         let rows = sqlx::query("SELECT id, movie_id, scene_number, created_at FROM scenes WHERE movie_id = $1 ORDER BY scene_number ASC LIMIT $2 OFFSET $3")
             .bind(movie_id)
@@ -27,7 +32,7 @@ impl SceneRepository for PostgresSceneRepository {
                 tracing::error!("DB error listing scenes for movie {}: {}", movie_id, e);
                 DomainError::Internal
             })?;
-        
+
         let mut scenes = Vec::new();
         for row in rows {
             scenes.push(Scene {
@@ -41,16 +46,17 @@ impl SceneRepository for PostgresSceneRepository {
     }
 
     async fn find_by_id(&self, id: i32) -> Result<Scene, DomainError> {
-        let row = sqlx::query("SELECT id, movie_id, scene_number, created_at FROM scenes WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("DB error finding scene {}: {}", id, e);
-                DomainError::Internal
-            })?
-            .ok_or(DomainError::NotFound(format!("Scene {}", id)))?;
-        
+        let row =
+            sqlx::query("SELECT id, movie_id, scene_number, created_at FROM scenes WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("DB error finding scene {}: {}", id, e);
+                    DomainError::Internal
+                })?
+                .ok_or(DomainError::NotFound(format!("Scene {}", id)))?;
+
         Ok(Scene {
             id: row.get("id"),
             movie_id: row.get("movie_id"),
@@ -69,7 +75,7 @@ impl SceneRepository for PostgresSceneRepository {
                 tracing::error!("DB error creating scene for movie {}: {}", movie_id, e);
                 DomainError::Internal
             })?;
-        
+
         Ok(Scene {
             id: row.get("id"),
             movie_id: row.get("movie_id"),

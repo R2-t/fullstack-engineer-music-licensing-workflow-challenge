@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::domain::*;
 use crate::ports::TrackRepository;
+use std::sync::Arc;
 
 pub struct TrackService<R: TrackRepository> {
     repo: Arc<R>,
@@ -11,7 +11,12 @@ impl<R: TrackRepository> TrackService<R> {
         Self { repo }
     }
 
-    pub async fn list_by_scene(&self, scene_id: i32, page: i32, limit: i32) -> Result<Vec<Track>, DomainError> {
+    pub async fn list_by_scene(
+        &self,
+        scene_id: i32,
+        page: i32,
+        limit: i32,
+    ) -> Result<Vec<Track>, DomainError> {
         self.repo.list_by_scene(scene_id, page, limit).await
     }
 
@@ -19,7 +24,13 @@ impl<R: TrackRepository> TrackService<R> {
         self.repo.find_by_id(id).await
     }
 
-    pub async fn create(&self, scene_id: i32, order: i16, name: String, song: Song) -> Result<Track, DomainError> {
+    pub async fn create(
+        &self,
+        scene_id: i32,
+        order: i16,
+        name: String,
+        song: Song,
+    ) -> Result<Track, DomainError> {
         if song.duration_sec_end <= song.duration_sec_start {
             return Err(DomainError::ValidationError(
                 "duration_sec_end must be greater than duration_sec_start".to_string(),
@@ -28,7 +39,13 @@ impl<R: TrackRepository> TrackService<R> {
         self.repo.create(scene_id, order, name, song).await
     }
 
-    pub async fn update(&self, id: i32, name: Option<String>, order: Option<i16>, song: Option<Song>) -> Result<Track, DomainError> {
+    pub async fn update(
+        &self,
+        id: i32,
+        name: Option<String>,
+        order: Option<i16>,
+        song: Option<Song>,
+    ) -> Result<Track, DomainError> {
         if let Some(ref s) = song {
             if s.duration_sec_end <= s.duration_sec_start {
                 return Err(DomainError::ValidationError(
@@ -48,8 +65,8 @@ impl<R: TrackRepository> TrackService<R> {
 mod tests {
     use super::*;
     use crate::ports::MockTrackRepository;
-    use mockall::predicate::*;
     use chrono::Utc;
+    use mockall::predicate::*;
 
     fn make_song() -> Song {
         Song {
@@ -77,12 +94,21 @@ mod tests {
         let mut repo = MockTrackRepository::new();
         repo.expect_create()
             .with(eq(1), eq(1), eq("Track 1".to_string()), always())
-            .returning(|scene_id, order, name, song| Ok(Track {
-                id: 1, scene_id, track_order: order, name, song, created_at: Utc::now(),
-            }));
+            .returning(|scene_id, order, name, song| {
+                Ok(Track {
+                    id: 1,
+                    scene_id,
+                    track_order: order,
+                    name,
+                    song,
+                    created_at: Utc::now(),
+                })
+            });
 
         let service = TrackService::new(Arc::new(repo));
-        let result = service.create(1, 1, "Track 1".to_string(), make_song()).await;
+        let result = service
+            .create(1, 1, "Track 1".to_string(), make_song())
+            .await;
         assert!(result.is_ok());
     }
 
@@ -123,7 +149,9 @@ mod tests {
             .returning(|id, _, _, _| Ok(make_track(id, 1)));
 
         let service = TrackService::new(Arc::new(repo));
-        let result = service.update(1, Some("New Name".to_string()), None, Some(make_song())).await;
+        let result = service
+            .update(1, Some("New Name".to_string()), None, Some(make_song()))
+            .await;
         assert!(result.is_ok());
     }
 
@@ -147,7 +175,9 @@ mod tests {
             .returning(|id, _, _, _| Ok(make_track(id, 1)));
 
         let service = TrackService::new(Arc::new(repo));
-        let result = service.update(1, Some("Updated".to_string()), None, None).await;
+        let result = service
+            .update(1, Some("Updated".to_string()), None, None)
+            .await;
         assert!(result.is_ok());
     }
 
@@ -179,9 +209,7 @@ mod tests {
     #[tokio::test]
     async fn delete_delegates_to_repo() {
         let mut repo = MockTrackRepository::new();
-        repo.expect_delete()
-            .with(eq(1))
-            .returning(|_| Ok(()));
+        repo.expect_delete().with(eq(1)).returning(|_| Ok(()));
 
         let service = TrackService::new(Arc::new(repo));
         let result = service.delete(1).await;

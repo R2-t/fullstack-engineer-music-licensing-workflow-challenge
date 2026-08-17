@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::domain::*;
 use crate::ports::MovieRepository;
+use std::sync::Arc;
 
 pub struct MovieService<R: MovieRepository> {
     repo: Arc<R>,
@@ -19,7 +19,11 @@ impl<R: MovieRepository> MovieService<R> {
         self.repo.find_by_id(id).await
     }
 
-    pub async fn create(&self, title: String, release_date: Option<chrono::NaiveDate>) -> Result<Movie, DomainError> {
+    pub async fn create(
+        &self,
+        title: String,
+        release_date: Option<chrono::NaiveDate>,
+    ) -> Result<Movie, DomainError> {
         self.repo.create(title, release_date).await
     }
 }
@@ -28,8 +32,8 @@ impl<R: MovieRepository> MovieService<R> {
 mod tests {
     use super::*;
     use crate::ports::MockMovieRepository;
-    use mockall::predicate::*;
     use chrono::Utc;
+    use mockall::predicate::*;
 
     fn make_movie(id: i32) -> Movie {
         Movie {
@@ -83,12 +87,14 @@ mod tests {
         let mut repo = MockMovieRepository::new();
         repo.expect_create()
             .with(eq("New Movie".to_string()), eq(None))
-            .returning(|title, date| Ok(Movie {
-                id: 1,
-                title,
-                release_date: date,
-                created_at: Utc::now(),
-            }));
+            .returning(|title, date| {
+                Ok(Movie {
+                    id: 1,
+                    title,
+                    release_date: date,
+                    created_at: Utc::now(),
+                })
+            });
 
         let service = MovieService::new(Arc::new(repo));
         let result = service.create("New Movie".to_string(), None).await;

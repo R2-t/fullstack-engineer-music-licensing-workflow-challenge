@@ -1,7 +1,7 @@
 pub mod postgres;
 
-use sqlx::PgPool;
 use crate::ports::*;
+use sqlx::PgPool;
 use std::sync::Arc;
 
 pub struct PostgresAdapter {
@@ -15,11 +15,21 @@ pub struct PostgresAdapter {
 impl PostgresAdapter {
     pub fn new(pool: PgPool) -> Self {
         Self {
-            movie_repo: Arc::new(postgres::movie_repo_impl::PostgresMovieRepository::new(pool.clone())),
-            scene_repo: Arc::new(postgres::scene_repo_impl::PostgresSceneRepository::new(pool.clone())),
-            track_repo: Arc::new(postgres::track_repo_impl::PostgresTrackRepository::new(pool.clone())),
-            license_repo: Arc::new(postgres::license_repo_impl::PostgresLicenseRepository::new(pool.clone())),
-            audit_repo: Arc::new(postgres::audit_repo_impl::PostgresAuditRepository::new(pool)),
+            movie_repo: Arc::new(postgres::movie_repo_impl::PostgresMovieRepository::new(
+                pool.clone(),
+            )),
+            scene_repo: Arc::new(postgres::scene_repo_impl::PostgresSceneRepository::new(
+                pool.clone(),
+            )),
+            track_repo: Arc::new(postgres::track_repo_impl::PostgresTrackRepository::new(
+                pool.clone(),
+            )),
+            license_repo: Arc::new(postgres::license_repo_impl::PostgresLicenseRepository::new(
+                pool.clone(),
+            )),
+            audit_repo: Arc::new(postgres::audit_repo_impl::PostgresAuditRepository::new(
+                pool,
+            )),
         }
     }
 }

@@ -1,7 +1,7 @@
-use sqlx::{PgPool, Row};
 use crate::domain::*;
 use crate::ports::TrackRepository;
 use async_trait::async_trait;
+use sqlx::{PgPool, Row};
 
 pub struct PostgresTrackRepository {
     pool: PgPool,
@@ -20,7 +20,9 @@ fn row_to_track(row: &sqlx::postgres::PgRow) -> Track {
         track_order: row.get("track_order"),
         name: row.get::<Option<String>, _>("name").unwrap_or_default(),
         song: Song {
-            title: row.get::<Option<String>, _>("song_title").unwrap_or_default(),
+            title: row
+                .get::<Option<String>, _>("song_title")
+                .unwrap_or_default(),
             artist: row.get("song_artist"),
             label_name: row.get("song_label"),
             duration_sec_start: row.get("duration_sec_start"),
@@ -32,7 +34,12 @@ fn row_to_track(row: &sqlx::postgres::PgRow) -> Track {
 
 #[async_trait]
 impl TrackRepository for PostgresTrackRepository {
-    async fn list_by_scene(&self, scene_id: i32, page: i32, limit: i32) -> Result<Vec<Track>, DomainError> {
+    async fn list_by_scene(
+        &self,
+        scene_id: i32,
+        page: i32,
+        limit: i32,
+    ) -> Result<Vec<Track>, DomainError> {
         let offset = (page - 1) * limit;
         let rows = sqlx::query("SELECT id, scene_id, track_order, name, song_title, song_artist, song_label, duration_sec_start, duration_sec_end, created_at FROM tracks WHERE scene_id = $1 ORDER BY track_order ASC LIMIT $2 OFFSET $3")
             .bind(scene_id)
@@ -44,7 +51,7 @@ impl TrackRepository for PostgresTrackRepository {
                 tracing::error!("DB error listing tracks for scene {}: {}", scene_id, e);
                 DomainError::Internal
             })?;
-        
+
         Ok(rows.iter().map(row_to_track).collect())
     }
 
@@ -58,11 +65,17 @@ impl TrackRepository for PostgresTrackRepository {
                 DomainError::Internal
             })?
             .ok_or(DomainError::NotFound(format!("Track {}", id)))?;
-        
+
         Ok(row_to_track(&row))
     }
 
-    async fn create(&self, scene_id: i32, order: i16, name: String, song: Song) -> Result<Track, DomainError> {
+    async fn create(
+        &self,
+        scene_id: i32,
+        order: i16,
+        name: String,
+        song: Song,
+    ) -> Result<Track, DomainError> {
         let row = sqlx::query("INSERT INTO tracks (scene_id, track_order, name, song_title, song_artist, song_label, duration_sec_start, duration_sec_end) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, scene_id, track_order, name, song_title, song_artist, song_label, duration_sec_start, duration_sec_end, created_at")
             .bind(scene_id)
             .bind(order)
@@ -78,11 +91,17 @@ impl TrackRepository for PostgresTrackRepository {
                 tracing::error!("DB error creating track in scene {}: {}", scene_id, e);
                 DomainError::Internal
             })?;
-        
+
         Ok(row_to_track(&row))
     }
 
-    async fn update(&self, id: i32, name: Option<String>, order: Option<i16>, song: Option<Song>) -> Result<Track, DomainError> {
+    async fn update(
+        &self,
+        id: i32,
+        name: Option<String>,
+        order: Option<i16>,
+        song: Option<Song>,
+    ) -> Result<Track, DomainError> {
         let row = sqlx::query("UPDATE tracks SET name = COALESCE($2, name), track_order = COALESCE($3, track_order), song_title = COALESCE($4, song_title), song_artist = COALESCE($5, song_artist), song_label = COALESCE($6, song_label), duration_sec_start = COALESCE($7, duration_sec_start), duration_sec_end = COALESCE($8, duration_sec_end) WHERE id = $1 RETURNING id, scene_id, track_order, name, song_title, song_artist, song_label, duration_sec_start, duration_sec_end, created_at")
             .bind(id)
             .bind(&name)
@@ -98,7 +117,7 @@ impl TrackRepository for PostgresTrackRepository {
                 tracing::error!("DB error updating track {}: {}", id, e);
                 DomainError::Internal
             })?;
-        
+
         Ok(row_to_track(&row))
     }
 

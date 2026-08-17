@@ -1,8 +1,8 @@
-use sqlx::{PgPool, Row};
 use crate::domain::*;
 use crate::ports::MovieRepository;
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use sqlx::{PgPool, Row};
 
 pub struct PostgresMovieRepository {
     pool: PgPool,
@@ -27,7 +27,7 @@ impl MovieRepository for PostgresMovieRepository {
                 tracing::error!("DB error listing movies: {}", e);
                 DomainError::Internal
             })?;
-        
+
         let mut movies = Vec::new();
         for row in rows {
             movies.push(Movie {
@@ -41,16 +41,17 @@ impl MovieRepository for PostgresMovieRepository {
     }
 
     async fn find_by_id(&self, id: i32) -> Result<Movie, DomainError> {
-        let row = sqlx::query("SELECT id, title, release_date, created_at FROM movies WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("DB error finding movie {}: {}", id, e);
-                DomainError::Internal
-            })?
-            .ok_or(DomainError::NotFound(format!("Movie {}", id)))?;
-        
+        let row =
+            sqlx::query("SELECT id, title, release_date, created_at FROM movies WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("DB error finding movie {}: {}", id, e);
+                    DomainError::Internal
+                })?
+                .ok_or(DomainError::NotFound(format!("Movie {}", id)))?;
+
         Ok(Movie {
             id: row.get("id"),
             title: row.get("title"),
@@ -59,7 +60,11 @@ impl MovieRepository for PostgresMovieRepository {
         })
     }
 
-    async fn create(&self, title: String, release_date: Option<NaiveDate>) -> Result<Movie, DomainError> {
+    async fn create(
+        &self,
+        title: String,
+        release_date: Option<NaiveDate>,
+    ) -> Result<Movie, DomainError> {
         let row = sqlx::query("INSERT INTO movies (title, release_date) VALUES ($1, $2) RETURNING id, title, release_date, created_at")
             .bind(&title)
             .bind(release_date)
@@ -69,7 +74,7 @@ impl MovieRepository for PostgresMovieRepository {
                 tracing::error!("DB error creating movie: {}", e);
                 DomainError::Internal
             })?;
-        
+
         Ok(Movie {
             id: row.get("id"),
             title: row.get("title"),

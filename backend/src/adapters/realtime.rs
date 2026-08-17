@@ -1,6 +1,6 @@
-use tokio::sync::broadcast;
 use crate::ports::EventPublisher;
 use crate::ports::LicenseEvent;
+use tokio::sync::broadcast;
 
 pub struct BroadcastEventPublisher {
     tx: broadcast::Sender<LicenseEvent>,
@@ -85,7 +85,9 @@ mod tests {
         let mut rx = publisher.subscribe();
 
         for i in 1..=5 {
-            publisher.publish_status_changed(make_event(i, i * 10, LicenseStatus::Draft)).await;
+            publisher
+                .publish_status_changed(make_event(i, i * 10, LicenseStatus::Draft))
+                .await;
         }
 
         for i in 1..=5 {

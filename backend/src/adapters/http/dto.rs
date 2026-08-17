@@ -1,5 +1,5 @@
+use crate::domain::{LicenseAuditEntry, LicenseStatus};
 use serde::{Deserialize, Serialize};
-use crate::domain::{LicenseStatus, LicenseAuditEntry};
 
 #[derive(Serialize)]
 pub struct Pagination {

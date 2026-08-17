@@ -1,15 +1,9 @@
-use axum::{
-    extract::State,
-    http::Request,
-    middleware::Next,
-    response::Response,
-    body::Body,
-};
+use crate::adapters::http::router::AppState;
+use crate::error::AppError;
+use axum::{body::Body, extract::State, http::Request, middleware::Next, response::Response};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::adapters::http::router::AppState;
-use crate::error::AppError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
@@ -62,7 +56,8 @@ mod tests {
             &jsonwebtoken::Header::default(),
             &claims,
             &jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()),
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     #[test]

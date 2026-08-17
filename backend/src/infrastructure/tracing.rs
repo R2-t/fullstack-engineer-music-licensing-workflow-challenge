@@ -1,9 +1,9 @@
 use opentelemetry::KeyValue;
-use opentelemetry_sdk::resource::Resource;
-use opentelemetry_sdk::trace::Config;
-use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_otlp::WithExportConfig;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, fmt, EnvFilter};
+use opentelemetry_sdk::resource::Resource;
+use opentelemetry_sdk::runtime::Tokio;
+use opentelemetry_sdk::trace::Config;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub fn init_tracing() {
     let otlp_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -14,11 +14,14 @@ pub fn init_tracing() {
         .with_exporter(
             opentelemetry_otlp::new_exporter()
                 .tonic()
-                .with_endpoint(otlp_endpoint)
+                .with_endpoint(otlp_endpoint),
         )
-        .with_trace_config(Config::default().with_resource(Resource::new(vec![
-            KeyValue::new("service.name", "music-licensing-backend".to_string()),
-        ])))
+        .with_trace_config(
+            Config::default().with_resource(Resource::new(vec![KeyValue::new(
+                "service.name",
+                "music-licensing-backend".to_string(),
+            )])),
+        )
         .install_batch(Tokio)
         .expect("Failed to install OTLP tracer");
 
