@@ -97,15 +97,44 @@ pub trait AuditRepository: Send + Sync {
 #[mockall::automock]
 #[async_trait]
 pub trait EventPublisher: Send + Sync {
-    async fn publish_status_changed(&self, event: LicenseEvent);
+    async fn publish_status_changed(&self, event: LicenseEvent) -> Result<String, DomainError>;
+}
+
+#[mockall::automock]
+#[async_trait]
+pub trait EventSubscriber: Send + Sync {
+    fn consumer_name(&self) -> String;
+    async fn replay(
+        &self,
+        last_event_id: Option<String>,
+        limit: i64,
+    ) -> Result<Vec<StreamMessage>, DomainError>;
+    async fn next_event(&self, block_ms: u64) -> Result<Option<StreamMessage>, DomainError>;
+    async fn ack(&self, id: &str) -> Result<(), DomainError>;
+    async fn claim(&self, idle_ms: u64) -> Result<Vec<StreamMessage>, DomainError>;
+}
+
+#[mockall::automock]
+pub trait EventSubscriberFactory: Send + Sync {
+    fn create_subscriber(
+        &self,
+        consumer_name: String,
+    ) -> Result<Box<dyn EventSubscriber>, DomainError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LicenseEvent {
+    pub stream_id: String,
     pub track_id: i32,
     pub license_id: i32,
     pub previous_status: Option<LicenseStatus>,
     pub status: LicenseStatus,
     pub changed_by: String,
     pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamMessage {
+    pub id: String,
+    pub event: LicenseEvent,
 }

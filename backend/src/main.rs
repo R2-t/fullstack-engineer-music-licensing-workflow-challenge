@@ -1,6 +1,8 @@
 use music_licensing_backend::adapters::http::router::create_router;
+use music_licensing_backend::adapters::realtime::RedisEventHub;
 use music_licensing_backend::config;
 use music_licensing_backend::infrastructure;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
@@ -28,7 +30,13 @@ async fn main() {
         }
     }
 
-    let app = create_router(pool, config.jwt_secret.clone());
+    let event_hub = Arc::new(
+        RedisEventHub::new(&config.redis_url)
+            .await
+            .expect("Failed to connect to Redis"),
+    );
+
+    let app = create_router(pool, config.jwt_secret.clone(), event_hub).await;
 
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", config.host, config.port))
         .await

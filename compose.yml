@@ -16,6 +16,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: licensing-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   jaeger:
     image: jaegertracing/all-in-one:1.55
     container_name: licensing-jaeger
@@ -27,13 +40,14 @@ services:
       - "4318:4318"
 
   backend:
-    build: 
+    build:
       context: ./backend
     container_name: licensing-backend
     ports:
       - "8080:8080"
     environment:
       DATABASE_URL: postgres://postgres:password@db:5432/licensing_db
+      REDIS_URL: redis://redis:6379
       PORT: 8080
       JWT_SECRET: secret_key_change_me
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
@@ -41,8 +55,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       jaeger:
         condition: service_started
 
 volumes:
   postgres_data:
+  redis_data:

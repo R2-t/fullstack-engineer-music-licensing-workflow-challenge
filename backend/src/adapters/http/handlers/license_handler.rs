@@ -2,6 +2,7 @@ use crate::adapters::http::dto::*;
 use crate::adapters::http::router::AppState;
 use crate::domain::workflow::WorkflowValidator;
 use crate::error::AppError;
+#[allow(unused_imports)]
 use crate::ports::EventPublisher;
 use axum::{
     extract::{Path, State},
@@ -167,6 +168,7 @@ pub async fn transition_status(
     state
         .event_publisher
         .publish_status_changed(crate::ports::LicenseEvent {
+            stream_id: String::new(),
             track_id,
             license_id: license.id,
             previous_status: Some(license.status),
@@ -174,7 +176,8 @@ pub async fn transition_status(
             changed_by: user,
             timestamp: chrono::Utc::now(),
         })
-        .await;
+        .await
+        .ok();
 
     info!(
         track_id,

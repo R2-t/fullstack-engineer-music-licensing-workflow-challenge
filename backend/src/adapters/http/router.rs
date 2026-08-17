@@ -3,7 +3,7 @@ use crate::adapters::http::auth::auth_middleware; // re-enable with auth layer b
 use crate::adapters::http::handlers::{
     license_handler, movie_handler, scene_handler, sse_handler, track_handler,
 };
-use crate::adapters::realtime::BroadcastEventPublisher;
+use crate::adapters::realtime::RedisEventHub;
 use crate::ports::*;
 use axum::{
     routing::{get, patch},
@@ -19,13 +19,19 @@ pub struct AppState {
     pub track_repo: Arc<dyn TrackRepository>,
     pub license_repo: Arc<dyn LicenseRepository>,
     pub audit_repo: Arc<dyn AuditRepository>,
-    pub event_publisher: Arc<BroadcastEventPublisher>,
+    pub event_publisher: Arc<dyn EventPublisher>,
+    pub event_hub: Arc<dyn EventSubscriberFactory>,
     pub jwt_secret: String,
 }
 
-pub fn create_router(pool: PgPool, jwt_secret: String) -> Router {
+pub async fn create_router(
+    pool: PgPool,
+    jwt_secret: String,
+    event_hub: Arc<RedisEventHub>,
+) -> Router {
     let adapter = crate::adapters::db::PostgresAdapter::new(pool);
-    let publisher = Arc::new(BroadcastEventPublisher::new());
+    let event_publisher = event_hub.clone() as Arc<dyn EventPublisher>;
+    let event_sub_factory = event_hub.clone() as Arc<dyn EventSubscriberFactory>;
 
     let state = Arc::new(AppState {
         movie_repo: adapter.movie_repo.clone(),
@@ -33,7 +39,8 @@ pub fn create_router(pool: PgPool, jwt_secret: String) -> Router {
         track_repo: adapter.track_repo.clone(),
         license_repo: adapter.license_repo.clone(),
         audit_repo: adapter.audit_repo.clone(),
-        event_publisher: publisher.clone(),
+        event_publisher,
+        event_hub: event_sub_factory,
         jwt_secret: jwt_secret.clone(),
     });
 

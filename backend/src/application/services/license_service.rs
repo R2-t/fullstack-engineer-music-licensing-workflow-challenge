@@ -88,6 +88,7 @@ where
 
         self.publisher
             .publish_status_changed(LicenseEvent {
+                stream_id: String::new(),
                 track_id,
                 license_id: license.id,
                 previous_status: Some(license.status),
@@ -95,7 +96,8 @@ where
                 changed_by: user,
                 timestamp: chrono::Utc::now(),
             })
-            .await;
+            .await
+            .ok();
 
         Ok(updated)
     }
@@ -219,7 +221,9 @@ mod tests {
             .expect_log_transition()
             .returning(|_, _, _, _, _| Ok(make_audit_entry(1, 1, 1)));
 
-        publisher.expect_publish_status_changed().returning(|_| ());
+        publisher
+            .expect_publish_status_changed()
+            .returning(|_| Ok("test-id".to_string()));
 
         let service = LicenseService::new(
             Arc::new(license_repo),
@@ -409,7 +413,7 @@ mod tests {
         publisher
             .expect_publish_status_changed()
             .times(1)
-            .returning(|_| ());
+            .returning(|_| Ok("test-id".to_string()));
 
         let service = LicenseService::new(
             Arc::new(license_repo),

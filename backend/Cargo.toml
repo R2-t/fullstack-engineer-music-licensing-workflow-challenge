@@ -27,6 +27,7 @@ async-trait = "0.1"
 tokio-stream = "0.1"
 async-stream = "0.3"
 mockall = "0.12"
+redis = { version = "0.27", features = ["tokio-comp", "streams", "connection-manager"] }
 
 [dev-dependencies]
 tower = "0.4"
