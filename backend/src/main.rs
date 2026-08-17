@@ -13,11 +13,18 @@ async fn main() {
         .expect("Failed to connect to database");
     
     let migration_sql = include_str!("../migrations/0001_init.sql");
-    for statement in migration_sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty() && !s.starts_with("--")) {
-        sqlx::query(statement)
-            .execute(&pool)
-            .await
-            .expect("Failed to run migrations");
+    for statement in migration_sql.split(';') {
+        let statement: String = statement.lines()
+            .filter(|line| !line.trim_start().starts_with("--"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let statement = statement.trim();
+        if !statement.is_empty() {
+            sqlx::query(statement)
+                .execute(&pool)
+                .await
+                .expect("Failed to run migrations");
+        }
     }
 
     let app = create_router(pool, config.jwt_secret.clone());
