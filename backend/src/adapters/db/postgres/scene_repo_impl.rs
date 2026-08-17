@@ -15,6 +15,7 @@ impl PostgresSceneRepository {
 
 #[async_trait]
 impl SceneRepository for PostgresSceneRepository {
+    #[tracing::instrument(skip(self), name = "db.scene.list_by_movie")]
     async fn list_by_movie(
         &self,
         movie_id: i32,
@@ -45,6 +46,7 @@ impl SceneRepository for PostgresSceneRepository {
         Ok(scenes)
     }
 
+    #[tracing::instrument(skip(self), name = "db.scene.find_by_id")]
     async fn find_by_id(&self, id: i32) -> Result<Scene, DomainError> {
         let row =
             sqlx::query("SELECT id, movie_id, scene_number, created_at FROM scenes WHERE id = $1")
@@ -65,6 +67,7 @@ impl SceneRepository for PostgresSceneRepository {
         })
     }
 
+    #[tracing::instrument(skip(self), name = "db.scene.create")]
     async fn create(&self, movie_id: i32, scene_number: i16) -> Result<Scene, DomainError> {
         let row = sqlx::query("INSERT INTO scenes (movie_id, scene_number) VALUES ($1, $2) RETURNING id, movie_id, scene_number, created_at")
             .bind(movie_id)

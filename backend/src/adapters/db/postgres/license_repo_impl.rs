@@ -28,6 +28,7 @@ fn row_to_license(row: &sqlx::postgres::PgRow) -> License {
 
 #[async_trait]
 impl LicenseRepository for PostgresLicenseRepository {
+    #[tracing::instrument(skip(self), name = "db.license.find_by_track")]
     async fn find_by_track(&self, track_id: i32) -> Result<Option<License>, DomainError> {
         let row = sqlx::query("SELECT id, track_id, label_name, artist_name, status, negotiation_notes, last_updated_at FROM licenses WHERE track_id = $1")
             .bind(track_id)
@@ -41,6 +42,7 @@ impl LicenseRepository for PostgresLicenseRepository {
         Ok(row.as_ref().map(row_to_license))
     }
 
+    #[tracing::instrument(skip(self), name = "db.license.find_by_id")]
     async fn find_by_id(&self, id: i32) -> Result<License, DomainError> {
         let row = sqlx::query("SELECT id, track_id, label_name, artist_name, status, negotiation_notes, last_updated_at FROM licenses WHERE id = $1")
             .bind(id)
@@ -55,6 +57,7 @@ impl LicenseRepository for PostgresLicenseRepository {
         Ok(row_to_license(&row))
     }
 
+    #[tracing::instrument(skip(self, notes), name = "db.license.create")]
     async fn create(
         &self,
         track_id: i32,
@@ -77,6 +80,7 @@ impl LicenseRepository for PostgresLicenseRepository {
         Ok(row_to_license(&row))
     }
 
+    #[tracing::instrument(skip(self, notes), name = "db.license.update_status")]
     async fn update_status(
         &self,
         id: i32,

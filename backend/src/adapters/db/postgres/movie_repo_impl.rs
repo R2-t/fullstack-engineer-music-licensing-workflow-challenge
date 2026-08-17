@@ -16,6 +16,7 @@ impl PostgresMovieRepository {
 
 #[async_trait]
 impl MovieRepository for PostgresMovieRepository {
+    #[tracing::instrument(skip(self), name = "db.movie.list")]
     async fn list(&self, page: i32, limit: i32) -> Result<Vec<Movie>, DomainError> {
         let offset = (page - 1) * limit;
         let rows = sqlx::query("SELECT id, title, release_date, created_at FROM movies ORDER BY created_at DESC LIMIT $1 OFFSET $2")
@@ -40,6 +41,7 @@ impl MovieRepository for PostgresMovieRepository {
         Ok(movies)
     }
 
+    #[tracing::instrument(skip(self), name = "db.movie.find_by_id")]
     async fn find_by_id(&self, id: i32) -> Result<Movie, DomainError> {
         let row =
             sqlx::query("SELECT id, title, release_date, created_at FROM movies WHERE id = $1")
@@ -60,6 +62,7 @@ impl MovieRepository for PostgresMovieRepository {
         })
     }
 
+    #[tracing::instrument(skip(self), name = "db.movie.create")]
     async fn create(
         &self,
         title: String,

@@ -34,6 +34,7 @@ fn row_to_track(row: &sqlx::postgres::PgRow) -> Track {
 
 #[async_trait]
 impl TrackRepository for PostgresTrackRepository {
+    #[tracing::instrument(skip(self), name = "db.track.list_by_scene")]
     async fn list_by_scene(
         &self,
         scene_id: i32,
@@ -55,6 +56,7 @@ impl TrackRepository for PostgresTrackRepository {
         Ok(rows.iter().map(row_to_track).collect())
     }
 
+    #[tracing::instrument(skip(self), name = "db.track.find_by_id")]
     async fn find_by_id(&self, id: i32) -> Result<Track, DomainError> {
         let row = sqlx::query("SELECT id, scene_id, track_order, name, song_title, song_artist, song_label, duration_sec_start, duration_sec_end, created_at FROM tracks WHERE id = $1")
             .bind(id)
@@ -69,6 +71,7 @@ impl TrackRepository for PostgresTrackRepository {
         Ok(row_to_track(&row))
     }
 
+    #[tracing::instrument(skip(self, song), name = "db.track.create")]
     async fn create(
         &self,
         scene_id: i32,
@@ -95,6 +98,7 @@ impl TrackRepository for PostgresTrackRepository {
         Ok(row_to_track(&row))
     }
 
+    #[tracing::instrument(skip(self, song), name = "db.track.update")]
     async fn update(
         &self,
         id: i32,
@@ -121,6 +125,7 @@ impl TrackRepository for PostgresTrackRepository {
         Ok(row_to_track(&row))
     }
 
+    #[tracing::instrument(skip(self), name = "db.track.delete")]
     async fn delete(&self, id: i32) -> Result<(), DomainError> {
         sqlx::query("DELETE FROM tracks WHERE id = $1")
             .bind(id)

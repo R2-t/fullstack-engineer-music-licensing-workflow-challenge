@@ -15,6 +15,7 @@ impl PostgresAuditRepository {
 
 #[async_trait]
 impl AuditRepository for PostgresAuditRepository {
+    #[tracing::instrument(skip(self, user), name = "db.audit.log_transition")]
     async fn log_transition(
         &self,
         track_id: i32,
@@ -53,6 +54,7 @@ impl AuditRepository for PostgresAuditRepository {
         })
     }
 
+    #[tracing::instrument(skip(self), name = "db.audit.list_by_license")]
     async fn list_by_license(
         &self,
         license_id: i32,
@@ -86,6 +88,7 @@ impl AuditRepository for PostgresAuditRepository {
         Ok(entries)
     }
 
+    #[tracing::instrument(skip(self), name = "db.audit.find_after_id")]
     async fn find_after_id(
         &self,
         license_id: i32,
