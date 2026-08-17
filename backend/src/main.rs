@@ -4,24 +4,35 @@ pub mod ports;
 pub mod adapters;
 pub mod config;
 pub mod error;
+pub mod infrastructure;
 
 use std::sync::Arc;
-use axum::{Router, routing::{get, post, patch, delete}, Router as AxumRouter};
+use axum::Router;
 use crate::adapters::http::router::create_router;
 
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().ok();
-    tracing_subscriber::fmt::init();
+    crate::infrastructure::tracing::init_tracing();
 
     let config = config::Config::from_env();
-    let pool = sqlx::PgPool::connect(&config.database_url).await.expect("Failed to connect to DB");
+    let pool = sqlx::PgPool::connect(&config.database_url)
+        .await
+        .expect("Failed to connect to database");
     
-    sqlx::migrate!("./migrations").run(&pool).await.expect("Migration failed");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run migrations");
 
-    let app = create_router(pool);
+    let app = create_router(pool, config.jwt_secret.clone());
     
-    let listener = tokio::net::TcpListener::bind(format!("{}:{}", config.host, config.port)).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(format!("{}:{}", config.host, config.port))
+        .await
+        .expect("Failed to bind listener");
+    
     tracing::info!("Server running on http://{}:{}", config.host, config.port);
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .await
+        .expect("Server error");
 }

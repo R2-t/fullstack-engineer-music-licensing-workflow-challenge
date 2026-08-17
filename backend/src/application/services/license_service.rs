@@ -39,7 +39,7 @@ where
         
         let updated = self.license_repo.update_status(license.id, target, notes).await?;
         
-        self.audit_repo.log_transition(track_id, license.id, user, Some(license.status), target).await?;
+        self.audit_repo.log_transition(track_id, license.id, user.clone(), Some(license.status), target).await?;
         
         self.publisher.publish_status_changed(LicenseEvent {
             track_id,

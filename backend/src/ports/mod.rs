@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use crate::domain::*;
-use std::sync::Arc;
+use serde::{Serialize, Deserialize};
 
 #[async_trait]
 pub trait MovieRepository: Send + Sync {

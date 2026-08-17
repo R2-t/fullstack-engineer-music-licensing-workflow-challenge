@@ -1,0 +1,25 @@
+use opentelemetry::KeyValue;
+use opentelemetry_sdk::resource::Resource;
+use opentelemetry_sdk::trace::Config;
+use opentelemetry_sdk::runtime::Tokio;
+use opentelemetry_otlp::WithExportConfig;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, fmt, EnvFilter};
+
+pub fn init_tracing() {
+    let tracer = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint("http://localhost:4317"))
+        .with_trace_config(Config::default().with_resource(Resource::new(vec![
+            KeyValue::new("service.name", "music-licensing-backend".to_string()),
+        ])))
+        .install_batch(Tokio)
+        .expect("Failed to install OTLP tracer");
+
+    let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into()))
+        .with(otel_layer)
+        .init();
+}

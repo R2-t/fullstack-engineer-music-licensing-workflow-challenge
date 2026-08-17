@@ -1,0 +1,897 @@
+openapi: 3.0.1
+info:
+  title: Movie Music Licensing System API
+  description: |
+    An API for managing movie music tracks within scenes, handling
+    song-to-track associations, tracking licensing workflows (DRAFT -> APPROVED),
+    and providing real-time subscription hooks for status updates.
+
+    This system enforces a specific workflow state machine to ensure license
+    progression integrity. See the 'LicenseStatus' component in Components/Schemas.
+  version: "1.0.0"
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.movielicensing.com/v1
+    description: Production Server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Movies
+    description: Manage Movie metadata and release info
+  - name: Scenes
+    description: Structure a movie into specific scenes containing tracks
+  - name: Tracks
+    description: Audio segments within a scene
+  - name: Licensing
+    description: State management, negotiation tracking, and status updates
+  - name: Real-time
+    description: Server-Sent Events streams for near-real-time status updates
+
+paths:
+
+  /movies:
+    get:
+      summary: List all movies in the library (paginated)
+      operationId: listMovies
+      tags: [ Movies ]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: A paginated list of movie records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    post:
+      summary: Create a new movie entry
+      operationId: createMovie
+      tags: [ Movies ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMovieRequest'
+      responses:
+        '201':
+          description: Movie created successfully with UUID assigned (if using uuid-v7)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /movies/{id}:
+    get:
+      summary: Get movie details by ID
+      operationId: getMovieById
+      tags: [ Movies ]
+      parameters:
+        - $ref: '#/components/parameters/MoviePathId'
+      responses:
+        '200':
+          description: Movie record found (full details)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovieFull'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /movies/{id}/scenes:
+    get:
+      summary: List all scenes for a specific movie
+      operationId: listScenesForMovie
+      tags: [ Scenes ]
+      parameters:
+        - $ref: '#/components/parameters/MoviePathId'
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: List of scenes ordered by scene_number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneListResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      summary: Create a new scene for the movie
+      operationId: createScene
+      tags: [ Scenes ]
+      parameters:
+        - $ref: '#/components/parameters/MoviePathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSceneRequest'
+      responses:
+        '201':
+          description: Scene created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneFull'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /movies/{movieId}/scenes/{sceneId}:
+    get:
+      summary: Get specific scene details by ID (movie-scene pair)
+      operationId: getSceneById
+      tags: [ Scenes ]
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+      responses:
+        '200':
+          description: Scene record found with track count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneFull'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ========================================================================
+  # TRACKS API ENDPOINTS
+  # ========================================================================
+
+  /movies/{movieId}/scenes/{sceneId}/tracks:
+    get:
+      summary: List all tracks for a specific scene
+      operationId: listTracksForScene
+      tags: [ Tracks ]
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: List of tracks with license status summaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackListResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      summary: Create a new track segment (and associate a song) for the scene
+      operationId: createTrackForScene
+      tags: [ Tracks ]
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTrackRequest'
+      responses:
+        '201':
+          description: Track created with optional license initiation (DRAFT status)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackFull'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /movies/{movieId}/scenes/{sceneId}/tracks/{trackId}:
+    get:
+      summary: Get full track details including active licensing workflow
+      operationId: getTrackById
+      tags: [ Tracks ]
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        '200':
+          description: Track details with associated song info and license status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackFull'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update track metadata (name, duration, song association, etc.)
+      operationId: updateTrackDetails
+      tags: [ Tracks ]
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+        - $ref: '#/components/parameters/TrackId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchTrackRequest'
+      responses:
+        '200':
+          description: Track updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackFull'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a track (and cascade license if empty)
+      operationId: deleteTrack
+      tags: [ Tracks ]
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        '204':
+          description: Track deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ========================================================================
+  # LICENSING (WORKFLOW) API ENDPOINTS
+  # ========================================================================
+
+  /movies/{movieId}/scenes/{sceneId}/tracks/{trackId}/licenses:
+    get:
+      summary: Get the current license status and negotiation history for a track
+      operationId: getLicenseStatus
+      tags: [ Licensing ]
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        '200':
+          description: Current license status and negotiation notes (JSONB field)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseFull'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      summary: Initiate licensing workflow for a track (creates DRAFT license record)
+      operationId: initiateLicenseWorkflow
+      tags: [ Licensing ]
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+        - $ref: '#/components/parameters/TrackId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLicenseRequest'
+      responses:
+        '201':
+          description: "License workflow initialized (status: DRAFT)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseFull'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: A license workflow already exists for this track
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /movies/{movieId}/scenes/{sceneId}/tracks/{trackId}/licenses/status-transition:
+    patch:
+      summary: Transition license workflow status with validation enforcement
+      operationId: transitionLicenseStatus
+      tags: [ Licensing ]
+      description: |
+        Transitions the license status following the allowed state machine:
+
+        | Initial State  | Allowed Transitions            |
+        | -------------- | ------------------------------ |
+        | `DRAFT`        | -> `NEGOTIATING`               |
+        | `NEGOTIATING`  | -> `APPROVED`, -> `REJECTED`   |
+        | `REJECTED`     | -> `NEGOTIATING`               |
+
+        `APPROVED` is a terminal state. Invalid transitions return HTTP 409.
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+        - $ref: '#/components/parameters/TrackId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LicenseStatusTransitionRequest'
+      responses:
+        '200':
+          description: Status transition applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseFull'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invalid status transition for the current license state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ========================================================================
+  # REAL-TIME (SERVER-SENT EVENTS) API ENDPOINT
+  # ========================================================================
+
+  /movies/{movieId}/scenes/{sceneId}/tracks/{trackId}/licenses/events:
+    get:
+      summary: Subscribe to near-real-time license status events (SSE stream)
+      operationId: streamLicenseEvents
+      tags: [ Real-time ]
+      description: |
+        Opens a persistent Server-Sent Events (SSE) stream that emits a
+        `status_changed` event each time the track's license workflow status
+        transitions. Clients should reconnect with exponential backoff on
+        connection drops; the stream is idempotent and resumable via the
+        `Last-Event-ID` header.
+
+        Each event payload is a `LicenseEvent` (see Components/Schemas).
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+        - $ref: '#/components/parameters/SceneId'
+        - $ref: '#/components/parameters/TrackId'
+        - name: Last-Event-ID
+          in: header
+          required: false
+          description: ID of the last event received by the client, used for resuming the stream after a reconnect.
+          schema: { type: string }
+      responses:
+        '200':
+          description: SSE stream of license status events
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/LicenseEvent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+
+  # ==========================================================================
+  # SECURITY SCHEMES
+  # ==========================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT bearer token used to authenticate API requests.
+
+  # ==========================================================================
+  # PARAMETERS (reusable)
+  # ==========================================================================
+  parameters:
+    MoviePathId:
+      name: id
+      in: path
+      required: true
+      description: Movie identifier
+      schema: { type: integer, minimum: 1 }
+
+    MovieId:
+      name: movieId
+      in: path
+      required: true
+      description: Movie identifier
+      schema: { type: integer, minimum: 1 }
+
+    SceneId:
+      name: sceneId
+      in: path
+      required: true
+      description: Scene identifier
+      schema: { type: integer, minimum: 1 }
+
+    TrackId:
+      name: trackId
+      in: path
+      required: true
+      description: Track identifier
+      schema: { type: integer, minimum: 1 }
+
+  # ==========================================================================
+  # RESPONSES (reusable)
+  # ==========================================================================
+  responses:
+    BadRequest:
+      description: Invalid request payload or query parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: The requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  # ==========================================================================
+  # SCHEMAS
+  # ==========================================================================
+  schemas:
+
+    # ---------- Common ----------
+    Error:
+      type: object
+      required: [ code, message ]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code (e.g., `invalid_transition`, `not_found`, `bad_request`).
+          example: invalid_transition
+        message:
+          type: string
+          description: Human-readable error description.
+          example: "Cannot transition from APPROVED to NEGOTIATING"
+        details:
+          type: object
+          description: Optional additional structured error context.
+          additionalProperties: true
+
+    Pagination:
+      type: object
+      required: [ page, limit, total, totalPages ]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          example: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 20
+        total:
+          type: integer
+          minimum: 0
+          example: 137
+        totalPages:
+          type: integer
+          minimum: 0
+          example: 7
+
+    # ---------- Movies (table: movies) ----------
+    MovieSummary:
+      type: object
+      required: [ id, title, releaseDate, createdAt ]
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "The Last Laugh"
+        releaseDate:
+          type: string
+          format: date
+          example: "2025-03-14"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-11-01T10:00:00Z"
+
+    MovieFull:
+      allOf:
+        - $ref: '#/components/schemas/MovieSummary'
+        - type: object
+          properties:
+            sceneCount:
+              type: integer
+              minimum: 0
+              example: 12
+
+    CreateMovieRequest:
+      type: object
+      required: [ title ]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "The Last Laugh"
+        releaseDate:
+          type: string
+          format: date
+          example: "2025-03-14"
+
+    MovieListResponse:
+      type: object
+      required: [ items, pagination ]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MovieSummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # ---------- Scenes (table: scenes) ----------
+    SceneSummary:
+      type: object
+      required: [ id, movieId, sceneNumber, createdAt ]
+      properties:
+        id:
+          type: integer
+          example: 42
+        movieId:
+          type: integer
+          example: 1
+        sceneNumber:
+          type: integer
+          minimum: 0
+          example: 2
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-11-01T10:05:00Z"
+
+    SceneFull:
+      allOf:
+        - $ref: '#/components/schemas/SceneSummary'
+        - type: object
+          properties:
+            trackCount:
+              type: integer
+              minimum: 0
+              example: 3
+
+    CreateSceneRequest:
+      type: object
+      required: [ sceneNumber ]
+      properties:
+        sceneNumber:
+          type: integer
+          minimum: 0
+          example: 2
+
+    SceneListResponse:
+      type: object
+      required: [ items, pagination ]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SceneSummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # ---------- Songs (embedded in Track; no separate table) ----------
+    Song:
+      type: object
+      description: |
+        Musical work associated with a track. The song identity (title, artist,
+        label) and its time window within the scene are stored on the track
+        record (see `tracks` table in ARCHITECTURE.md).
+      required: [ title, artist, durationSecStart, durationSecEnd ]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "Puttin' on the Ritz"
+        artist:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: "Fred Astaire"
+        labelName:
+          type: string
+          maxLength: 250
+          nullable: true
+          example: "Warner Bros."
+        durationSecStart:
+          type: integer
+          minimum: 0
+          description: Offset (in seconds) within the scene where the song starts.
+          example: 12
+        durationSecEnd:
+          type: integer
+          minimum: 0
+          description: Offset (in seconds) within the scene where the song ends. Must be greater than `durationSecStart`.
+          example: 145
+
+    # ---------- Tracks (table: tracks) ----------
+    TrackSummary:
+      type: object
+      required: [ id, sceneId, trackOrder, name, song ]
+      properties:
+        id:
+          type: integer
+          example: 101
+        sceneId:
+          type: integer
+          example: 42
+        trackOrder:
+          type: integer
+          minimum: 0
+          example: 1
+        name:
+          type: string
+          example: "Opening Credits Cue"
+        song:
+          $ref: '#/components/schemas/Song'
+        licenseStatus:
+          oneOf:
+            - $ref: '#/components/schemas/LicenseStatus'
+            - type: string
+              enum: [ null ]
+              nullable: true
+          description: Current license workflow status, or `null` if no license has been initiated yet.
+
+    TrackFull:
+      allOf:
+        - $ref: '#/components/schemas/TrackSummary'
+        - type: object
+          properties:
+            license:
+              type: object
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/LicenseSummary'
+              description: Active license workflow record, or `null` if not yet initiated.
+            createdAt:
+              type: string
+              format: date-time
+              example: "2024-11-01T10:10:00Z"
+
+    CreateTrackRequest:
+      type: object
+      required: [ song ]
+      properties:
+        trackOrder:
+          type: integer
+          minimum: 0
+          default: 0
+          example: 1
+        name:
+          type: string
+          maxLength: 255
+          default: "Unnamed Track"
+          example: "Opening Credits Cue"
+        song:
+          $ref: '#/components/schemas/Song'
+
+    PatchTrackRequest:
+      type: object
+      description: Partial update of a track. Any omitted field is left unchanged.
+      properties:
+        trackOrder:
+          type: integer
+          minimum: 0
+          example: 2
+        name:
+          type: string
+          maxLength: 255
+          example: "Revised Opening Cue"
+        song:
+          $ref: '#/components/schemas/Song'
+
+    TrackListResponse:
+      type: object
+      required: [ items, pagination ]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackSummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # ---------- Licenses (table: licenses) ----------
+    LicenseStatus:
+      type: string
+      description: |
+        Workflow state for a license.
+
+        Allowed transitions:
+
+        | Initial State  | Allowed Transitions            |
+        | -------------- | ------------------------------ |
+        | `DRAFT`        | -> `NEGOTIATING`               |
+        | `NEGOTIATING`  | -> `APPROVED`, -> `REJECTED`   |
+        | `REJECTED`     | -> `NEGOTIATING`               |
+
+        `APPROVED` is terminal. Any transition not listed above is rejected
+        by the API (HTTP 409 `invalid_transition`).
+      enum: [ DRAFT, NEGOTIATING, APPROVED, REJECTED ]
+      example: NEGOTIATING
+
+    LicenseSummary:
+      type: object
+      required: [ id, trackId, labelName, artistName, status, lastUpdatedAt ]
+      properties:
+        id:
+          type: integer
+          example: 7
+        trackId:
+          type: integer
+          example: 101
+        labelName:
+          type: string
+          example: "Warner Bros."
+        artistName:
+          type: string
+          example: "Fred Astaire"
+        status:
+          $ref: '#/components/schemas/LicenseStatus'
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          example: "2024-11-02T15:30:00Z"
+
+    LicenseFull:
+      allOf:
+        - $ref: '#/components/schemas/LicenseSummary'
+        - type: object
+          properties:
+            negotiationNotes:
+              type: object
+              description: Free-form JSONB metadata (who was contacted, at what step, counter-offers, etc.).
+              additionalProperties: true
+              example:
+                "2024-11-01":
+                  contacted: "label.rep@warner.com"
+                  asked_fee: 25000
+                "2024-11-02":
+                  counter_offer: 18000
+                  status: "awaiting_approval"
+            auditLog:
+              type: array
+              description: Chronological audit trail of status transitions for this license.
+              items:
+                $ref: '#/components/schemas/LicenseAuditLogEntry'
+
+    CreateLicenseRequest:
+      type: object
+      required: [ labelName, artistName ]
+      properties:
+        labelName:
+          type: string
+          maxLength: 250
+          example: "Warner Bros."
+        artistName:
+          type: string
+          maxLength: 150
+          example: "Fred Astaire"
+        negotiationNotes:
+          type: object
+          additionalProperties: true
+          description: Optional initial JSONB metadata for the DRAFT license record.
+
+    LicenseStatusTransitionRequest:
+      type: object
+      required: [ targetStatus ]
+      properties:
+        targetStatus:
+          $ref: '#/components/schemas/LicenseStatus'
+        notes:
+          type: object
+          additionalProperties: true
+          description: |
+            Optional JSONB notes to append to `negotiationNotes` for this
+            transition (e.g., who approved, counter-offer amount, reason for rejection).
+          example:
+            changed_by: "alice@acmebros.com"
+            reason: "Counter-offer accepted at $18,000"
+
+    LicenseAuditLogEntry:
+      type: object
+      description: Row from the `license_audit_log` table.
+      required: [ id, trackId, userEmail, oldStatus, newStatus, changedAt ]
+      properties:
+        id:
+          type: integer
+          example: 99
+        trackId:
+          type: integer
+          example: 101
+        userEmail:
+          type: string
+          format: email
+          example: "alice@acmebros.com"
+        oldStatus:
+          $ref: '#/components/schemas/LicenseStatus'
+        newStatus:
+          $ref: '#/components/schemas/LicenseStatus'
+        changedAt:
+          type: string
+          format: date-time
+          example: "2024-11-02T15:30:00Z"
+
+    # ---------- Real-time events ----------
+    LicenseEvent:
+      type: object
+      description: |
+        Payload of a single Server-Sent Events message emitted by
+        `GET .../licenses/events`. Serialized as the SSE `data:` field
+        (JSON-encoded).
+      required: [ type, trackId, licenseId, previousStatus, status, timestamp ]
+      properties:
+        type:
+          type: string
+          enum: [ status_changed ]
+          example: status_changed
+        trackId:
+          type: integer
+          example: 101
+        licenseId:
+          type: integer
+          example: 7
+        previousStatus:
+          $ref: '#/components/schemas/LicenseStatus'
+        status:
+          $ref: '#/components/schemas/LicenseStatus'
+        changedBy:
+          type: string
+          format: email
+          nullable: true
+          example: "alice@acmebros.com"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-11-02T15:30:00Z"
+        notes:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Notes attached to this transition (same payload as `LicenseStatusTransitionRequest.notes`).

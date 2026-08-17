@@ -1,6 +1,7 @@
+pub mod workflow;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
 #[derive(Debug, Error)]
