@@ -8,13 +8,13 @@ impl WorkflowValidator {
             return Ok(());
         }
 
-        let valid = match (from, to) {
-            (LicenseStatus::Draft, LicenseStatus::Negotiating) => true,
-            (LicenseStatus::Negotiating, LicenseStatus::Approved) => true,
-            (LicenseStatus::Negotiating, LicenseStatus::Rejected) => true,
-            (LicenseStatus::Rejected, LicenseStatus::Negotiating) => true,
-            _ => false,
-        };
+        let valid = matches!(
+            (from, to),
+            (LicenseStatus::Draft, LicenseStatus::Negotiating)
+                | (LicenseStatus::Negotiating, LicenseStatus::Approved)
+                | (LicenseStatus::Negotiating, LicenseStatus::Rejected)
+                | (LicenseStatus::Rejected, LicenseStatus::Negotiating)
+        );
 
         if valid {
             Ok(())
