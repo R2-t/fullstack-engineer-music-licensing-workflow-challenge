@@ -1,5 +1,5 @@
 -- 📍 Movie Table
-CREATE TABLE movies (
+CREATE TABLE IF NOT EXISTS movies (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     release_date DATE,
@@ -7,7 +7,7 @@ CREATE TABLE movies (
 );
 
 -- 📍 Movie Scene Table
-CREATE TABLE scenes (
+CREATE TABLE IF NOT EXISTS scenes (
     id SERIAL PRIMARY KEY,
     movie_id INT NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
     scene_number SMALLINT NOT NULL DEFAULT 0,
@@ -15,7 +15,7 @@ CREATE TABLE scenes (
 );
 
 -- 📍 Track Table (Denormalized with song metadata)
-CREATE TABLE tracks (
+CREATE TABLE IF NOT EXISTS tracks (
     id SERIAL PRIMARY KEY,
     scene_id INT NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
     track_order SMALLINT DEFAULT 0,
@@ -29,7 +29,7 @@ CREATE TABLE tracks (
 );
 
 -- 📍 License Tracking Table
-CREATE TABLE licenses (
+CREATE TABLE IF NOT EXISTS licenses (
     id SERIAL PRIMARY KEY,
     track_id INT NOT NULL UNIQUE REFERENCES tracks(id) ON DELETE CASCADE,
     label_name VARCHAR(250),
@@ -40,7 +40,7 @@ CREATE TABLE licenses (
 );
 
 -- 📍 License Audit Log
-CREATE TABLE license_audit_log (
+CREATE TABLE IF NOT EXISTS license_audit_log (
     id SERIAL PRIMARY KEY,
     track_id INT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
     license_id INT NOT NULL REFERENCES licenses(id) ON DELETE CASCADE,
@@ -51,8 +51,8 @@ CREATE TABLE license_audit_log (
 );
 
 -- Indexes
-CREATE INDEX idx_scenes_movie ON scenes(movie_id);
-CREATE INDEX idx_tracks_scene ON tracks(scene_id);
-CREATE INDEX idx_license_track ON licenses(track_id);
-CREATE INDEX idx_audit_license ON license_audit_log(license_id);
-CREATE INDEX idx_audit_track ON license_audit_log(track_id);
+CREATE INDEX IF NOT EXISTS idx_scenes_movie ON scenes(movie_id);
+CREATE INDEX IF NOT EXISTS idx_tracks_scene ON tracks(scene_id);
+CREATE INDEX IF NOT EXISTS idx_license_track ON licenses(track_id);
+CREATE INDEX IF NOT EXISTS idx_audit_license ON license_audit_log(license_id);
+CREATE INDEX IF NOT EXISTS idx_audit_track ON license_audit_log(track_id);
