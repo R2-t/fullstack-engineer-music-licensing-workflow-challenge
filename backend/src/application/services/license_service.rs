@@ -147,7 +147,7 @@ mod tests {
     async fn initiate_creates_license_when_none_exists() {
         let mut license_repo = MockLicenseRepository::new();
         let mut audit_repo = MockAuditRepository::new();
-        let mut publisher = MockEventPublisher::new();
+        let publisher = MockEventPublisher::new();
 
         license_repo
             .expect_find_by_track()
@@ -180,7 +180,7 @@ mod tests {
     async fn initiate_rejects_duplicate_license() {
         let mut license_repo = MockLicenseRepository::new();
         let audit_repo = MockAuditRepository::new();
-        let mut publisher = MockEventPublisher::new();
+        let publisher = MockEventPublisher::new();
 
         license_repo
             .expect_find_by_track()
@@ -246,7 +246,7 @@ mod tests {
     async fn transition_draft_to_approved_fails() {
         let mut license_repo = MockLicenseRepository::new();
         let audit_repo = MockAuditRepository::new();
-        let mut publisher = MockEventPublisher::new();
+        let publisher = MockEventPublisher::new();
 
         license_repo
             .expect_find_by_track()
@@ -286,7 +286,7 @@ mod tests {
         ] {
             let mut license_repo = MockLicenseRepository::new();
             let audit_repo = MockAuditRepository::new();
-            let mut publisher = MockEventPublisher::new();
+            let publisher = MockEventPublisher::new();
 
             license_repo
                 .expect_find_by_track()
@@ -314,7 +314,7 @@ mod tests {
     async fn transition_not_found_license_returns_error() {
         let mut license_repo = MockLicenseRepository::new();
         let audit_repo = MockAuditRepository::new();
-        let mut publisher = MockEventPublisher::new();
+        let publisher = MockEventPublisher::new();
 
         license_repo.expect_find_by_track().returning(|_| Ok(None));
 
@@ -343,7 +343,7 @@ mod tests {
     async fn get_status_returns_license() {
         let mut license_repo = MockLicenseRepository::new();
         let audit_repo = MockAuditRepository::new();
-        let mut publisher = MockEventPublisher::new();
+        let publisher = MockEventPublisher::new();
 
         license_repo
             .expect_find_by_track()
@@ -365,7 +365,7 @@ mod tests {
     async fn get_status_not_found() {
         let mut license_repo = MockLicenseRepository::new();
         let audit_repo = MockAuditRepository::new();
-        let mut publisher = MockEventPublisher::new();
+        let publisher = MockEventPublisher::new();
 
         license_repo.expect_find_by_track().returning(|_| Ok(None));
 
