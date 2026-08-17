@@ -47,3 +47,81 @@ pub async fn auth_middleware(
 
     Ok(next.run(req).await)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_token(secret: &str, email: &str, exp: usize) -> String {
+        let claims = Claims {
+            sub: "user123".to_string(),
+            email: email.to_string(),
+            exp,
+        };
+        jsonwebtoken::encode(
+            &jsonwebtoken::Header::default(),
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()),
+        ).unwrap()
+    }
+
+    #[test]
+    fn extract_user_email_valid_token() {
+        let secret = "test_secret";
+        let exp = chrono::Utc::now().timestamp() as usize + 3600;
+        let token = make_token(secret, "user@example.com", exp);
+        let auth_header = format!("Bearer {}", token);
+
+        let result = extract_user_email(&auth_header, secret);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "user@example.com");
+    }
+
+    #[test]
+    fn extract_user_email_missing_bearer_prefix() {
+        let result = extract_user_email("SomeToken", "secret");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::Unauthorized(msg) => assert!(msg.contains("Missing Bearer")),
+            _ => panic!("Expected Unauthorized"),
+        }
+    }
+
+    #[test]
+    fn extract_user_email_invalid_token() {
+        let result = extract_user_email("Bearer invalidtoken", "secret");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::Unauthorized(msg) => assert!(msg.contains("Invalid token")),
+            _ => panic!("Expected Unauthorized"),
+        }
+    }
+
+    #[test]
+    fn extract_user_email_wrong_secret() {
+        let secret = "correct_secret";
+        let exp = chrono::Utc::now().timestamp() as usize + 3600;
+        let token = make_token(secret, "user@example.com", exp);
+        let auth_header = format!("Bearer {}", token);
+
+        let result = extract_user_email(&auth_header, "wrong_secret");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn extract_user_email_expired_token() {
+        let secret = "test_secret";
+        let exp = 1; // Already expired
+        let token = make_token(secret, "user@example.com", exp);
+        let auth_header = format!("Bearer {}", token);
+
+        let result = extract_user_email(&auth_header, secret);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn extract_user_email_empty_bearer() {
+        let result = extract_user_email("Bearer ", "secret");
+        assert!(result.is_err());
+    }
+}

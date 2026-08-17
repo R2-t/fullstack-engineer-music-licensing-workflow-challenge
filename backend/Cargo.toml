@@ -26,3 +26,9 @@ futures = "0.3"
 async-trait = "0.1"
 tokio-stream = "0.1"
 async-stream = "0.3"
+mockall = "0.12"
+
+[dev-dependencies]
+tower = "0.4"
+http = "1.0"
+http-body-util = "0.1"

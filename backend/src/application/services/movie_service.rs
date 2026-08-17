@@ -23,3 +23,76 @@ impl<R: MovieRepository> MovieService<R> {
         self.repo.create(title, release_date).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ports::MockMovieRepository;
+    use mockall::predicate::*;
+    use chrono::Utc;
+
+    fn make_movie(id: i32) -> Movie {
+        Movie {
+            id,
+            title: format!("Movie {}", id),
+            release_date: None,
+            created_at: Utc::now(),
+        }
+    }
+
+    #[tokio::test]
+    async fn list_movies_delegates_to_repo() {
+        let mut repo = MockMovieRepository::new();
+        repo.expect_list()
+            .with(eq(1), eq(20))
+            .returning(|_, _| Ok(vec![make_movie(1), make_movie(2)]));
+
+        let service = MovieService::new(Arc::new(repo));
+        let result = service.list(1, 20).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn find_by_id_found() {
+        let mut repo = MockMovieRepository::new();
+        repo.expect_find_by_id()
+            .with(eq(1))
+            .returning(|_| Ok(make_movie(1)));
+
+        let service = MovieService::new(Arc::new(repo));
+        let result = service.find_by_id(1).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().id, 1);
+    }
+
+    #[tokio::test]
+    async fn find_by_id_not_found() {
+        let mut repo = MockMovieRepository::new();
+        repo.expect_find_by_id()
+            .with(eq(999))
+            .returning(|_| Err(DomainError::NotFound("Movie 999".to_string())));
+
+        let service = MovieService::new(Arc::new(repo));
+        let result = service.find_by_id(999).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn create_movie_delegates_to_repo() {
+        let mut repo = MockMovieRepository::new();
+        repo.expect_create()
+            .with(eq("New Movie".to_string()), eq(None))
+            .returning(|title, date| Ok(Movie {
+                id: 1,
+                title,
+                release_date: date,
+                created_at: Utc::now(),
+            }));
+
+        let service = MovieService::new(Arc::new(repo));
+        let result = service.create("New Movie".to_string(), None).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().title, "New Movie");
+    }
+}
