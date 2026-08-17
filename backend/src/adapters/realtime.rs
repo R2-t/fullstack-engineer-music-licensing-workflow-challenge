@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tokio::sync::broadcast;
 use crate::ports::EventPublisher;
 use crate::ports::LicenseEvent;

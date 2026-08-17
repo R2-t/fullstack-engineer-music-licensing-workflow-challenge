@@ -1,9 +1,10 @@
 use axum::{
-    routing::{get, post, patch, delete},
+    routing::{get, patch},
     Router,
     middleware,
 };
 use std::sync::Arc;
+use tower_http::trace::{TraceLayer, DefaultMakeSpan};
 use crate::adapters::http::handlers::{
     movie_handler, scene_handler, track_handler, license_handler, sse_handler
 };
@@ -51,5 +52,6 @@ pub fn create_router(pool: PgPool, jwt_secret: String) -> Router {
 
     Router::new()
         .merge(api_routes)
+        .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::new().include_headers(true)))
         .with_state(state)
 }

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use crate::domain::*;
 use crate::ports::MovieRepository;
-use async_trait::async_trait;
 
 pub struct MovieService<R: MovieRepository> {
     repo: Arc<R>,

@@ -6,9 +6,16 @@ use opentelemetry_otlp::WithExportConfig;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, fmt, EnvFilter};
 
 pub fn init_tracing() {
+    let otlp_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+        .unwrap_or_else(|_| "http://localhost:4317".to_string());
+
     let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
-        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint("http://localhost:4317"))
+        .with_exporter(
+            opentelemetry_otlp::new_exporter()
+                .tonic()
+                .with_endpoint(otlp_endpoint)
+        )
         .with_trace_config(Config::default().with_resource(Resource::new(vec![
             KeyValue::new("service.name", "music-licensing-backend".to_string()),
         ])))

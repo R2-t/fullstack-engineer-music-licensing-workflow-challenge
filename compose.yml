@@ -16,6 +16,16 @@ services:
       timeout: 5s
       retries: 5
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.55
+    container_name: licensing-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+
   backend:
     build: 
       context: ./backend
@@ -26,9 +36,13 @@ services:
       DATABASE_URL: postgres://postgres:password@db:5432/licensing_db
       PORT: 8080
       JWT_SECRET: secret_key_change_me
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      RUST_LOG: info,music_licensing_backend=debug,sqlx=warn,tower_http=debug
     depends_on:
       db:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
 volumes:
   postgres_data:

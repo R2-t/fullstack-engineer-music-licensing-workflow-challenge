@@ -6,8 +6,6 @@ pub mod config;
 pub mod error;
 pub mod infrastructure;
 
-use std::sync::Arc;
-use axum::Router;
 use crate::adapters::http::router::create_router;
 
 #[tokio::main]

@@ -9,11 +9,18 @@ use crate::adapters::http::router::AppState;
 use crate::domain::workflow::WorkflowValidator;
 use crate::error::AppError;
 use crate::ports::EventPublisher;
+use tracing::{info, warn, Span};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 pub async fn get_license(
     Path((_movie_id, _scene_id, track_id)): Path<(i32, i32, i32)>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<LicenseFull>, AppError> {
+    let span = Span::current();
+    span.set_attribute("track.id", track_id as i64);
+
+    info!(track_id, "Fetching license for track");
+
     let license = state.license_repo.find_by_track(track_id).await?
         .ok_or_else(|| AppError::NotFound(format!("License for track {}", track_id)))?;
     
@@ -36,13 +43,21 @@ pub async fn initiate_license(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateLicenseRequest>,
 ) -> Result<(StatusCode, Json<LicenseFull>), AppError> {
+    let span = Span::current();
+    span.set_attribute("track.id", track_id as i64);
+
+    info!(track_id, "Initiating license for track");
+
     if state.license_repo.find_by_track(track_id).await?.is_some() {
+        warn!(track_id, "License already exists for track");
         return Err(AppError::Conflict("A license already exists for this track".to_string()));
     }
     
     let notes = req.negotiation_notes.unwrap_or_else(|| serde_json::json!({}));
     let license = state.license_repo.create(track_id, req.label_name, req.artist_name, notes).await?;
     
+    info!(license_id = license.id, "License created in DRAFT status");
+
     state.audit_repo.log_transition(
         track_id, license.id, "system".to_string(), None, crate::domain::LicenseStatus::Draft
     ).await.ok();
@@ -66,11 +81,37 @@ pub async fn transition_status(
     State(state): State<Arc<AppState>>,
     Json(req): Json<LicenseStatusTransitionRequest>,
 ) -> Result<Json<LicenseFull>, AppError> {
+    let span = Span::current();
+    span.set_attribute("track.id", track_id as i64);
+    span.set_attribute("license.target_status", req.target_status.to_string());
+
+    info!(
+        track_id,
+        target_status = %req.target_status,
+        "Processing license status transition"
+    );
+
     let license = state.license_repo.find_by_track(track_id).await?
         .ok_or_else(|| AppError::NotFound(format!("License for track {}", track_id)))?;
     
     WorkflowValidator::validate_transition(license.status, req.target_status)
-        .map_err(|e| AppError::from(e))?;
+        .map_err(|e| {
+            warn!(
+                track_id,
+                from = %license.status,
+                to = %req.target_status,
+                "Invalid transition attempted"
+            );
+            AppError::from(e)
+        })?;
+
+    info!(
+        track_id,
+        license_id = license.id,
+        from = %license.status,
+        to = %req.target_status,
+        "Transition validated, applying"
+    );
 
     let notes = req.notes.unwrap_or_else(|| serde_json::json!({}));
     let updated = state.license_repo.update_status(license.id, req.target_status, notes).await?;
@@ -89,6 +130,13 @@ pub async fn transition_status(
         changed_by: user,
         timestamp: chrono::Utc::now(),
     }).await;
+
+    info!(
+        track_id,
+        license_id = updated.id,
+        new_status = %updated.status,
+        "License status transition completed"
+    );
 
     let audit_log = state.audit_repo.list_by_license(license.id).await.unwrap_or_default();
 

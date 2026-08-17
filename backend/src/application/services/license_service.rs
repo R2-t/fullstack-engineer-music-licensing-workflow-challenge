@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use crate::domain::*;
 use crate::ports::*;
-use async_trait::async_trait;
 
 pub struct LicenseService<L, A, E> {
     license_repo: Arc<L>,
