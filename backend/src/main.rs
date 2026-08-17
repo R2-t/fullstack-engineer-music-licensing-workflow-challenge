@@ -20,8 +20,8 @@ async fn main() {
         .await
         .expect("Failed to connect to database");
     
-    sqlx::migrate!("./migrations")
-        .run(&pool)
+    sqlx::query(include_str!("../migrations/0001_init.sql"))
+        .execute(&pool)
         .await
         .expect("Failed to run migrations");
 
