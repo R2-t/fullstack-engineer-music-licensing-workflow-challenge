@@ -12,10 +12,13 @@ async fn main() {
         .await
         .expect("Failed to connect to database");
     
-    sqlx::query(include_str!("../migrations/0001_init.sql"))
-        .execute(&pool)
-        .await
-        .expect("Failed to run migrations");
+    let migration_sql = include_str!("../migrations/0001_init.sql");
+    for statement in migration_sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty() && !s.starts_with("--")) {
+        sqlx::query(statement)
+            .execute(&pool)
+            .await
+            .expect("Failed to run migrations");
+    }
 
     let app = create_router(pool, config.jwt_secret.clone());
     
